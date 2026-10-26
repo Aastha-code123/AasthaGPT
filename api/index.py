@@ -179,6 +179,12 @@ def chat(request: ChatRequest):
 app.include_router(api)
 
 
+@app.post("/")
+def chat_root(request: ChatRequest):
+    """Vercel can hand the function the bare path, losing '/chat'. Accept chat here too."""
+    return chat(request)
+
+
 @app.get("/")
 def home():
     """Local dev convenience. On Vercel, index.html is served statically."""
