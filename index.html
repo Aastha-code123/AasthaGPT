@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AasthaGPT</title>
+  <style>
+    :root{
+      --cream:#fbf7ef; --card:#fffdf9; --ink:#272522; --muted:#77736c;
+      --sage:#dfe8d8; --sage-dark:#52634d; --blush:#f2dedd; --lav:#e8e0f1;
+      --line:#e7e0d5;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--cream);color:var(--ink);font-family:Arial,sans-serif}
+    button,input{font:inherit}
+    .app{min-height:100vh;display:flex}
+    .sidebar{width:260px;background:#f4efe6;border-right:1px solid var(--line);padding:22px 16px;display:flex;flex-direction:column}
+    .brand{font-family:Georgia,serif;font-size:24px;font-weight:700;padding:6px 10px 24px}
+    .new{width:100%;border:0;background:var(--ink);color:white;border-radius:12px;padding:12px;cursor:pointer}
+    .history-title{font-size:12px;color:var(--muted);margin:24px 10px 8px;text-transform:uppercase;letter-spacing:.08em}
+    .history{display:flex;flex-direction:column;gap:5px}
+    .history button{border:0;background:transparent;text-align:left;padding:10px;border-radius:10px;color:#555;cursor:pointer}
+    .history button:hover{background:#eae3d8}
+    .main{flex:1;min-width:0;display:flex;flex-direction:column}
+    .top{height:64px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:rgba(251,247,239,.9)}
+    .menu{display:none;border:0;background:transparent;font-size:24px;cursor:pointer}
+    .status{font-size:13px;color:var(--muted)}
+    .chat{width:min(900px,100%);margin:auto;flex:1;padding:55px 22px 120px}
+    .hero{text-align:center;margin:35px 0 40px}
+    .hero h1{font-family:Georgia,serif;font-size:48px;line-height:1.05;margin:0 0 12px}
+    .hero p{color:var(--muted);font-size:16px;margin:0}
+    .suggestions{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin:0 auto 35px;max-width:720px}
+    .suggestion{border:1px solid var(--line);border-radius:18px;padding:17px;text-align:left;background:var(--card);cursor:pointer;transition:.15s}
+    .suggestion:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(50,40,20,.06)}
+    .suggestion:nth-child(1){background:var(--sage)}
+    .suggestion:nth-child(2){background:var(--blush)}
+    .suggestion:nth-child(3){background:var(--lav)}
+    .suggestion:nth-child(4){background:#eee7d7}
+    .suggestion b{display:block;margin-bottom:5px}
+    .suggestion span{font-size:13px;color:#69645d}
+    .messages{display:flex;flex-direction:column;gap:18px}
+    .msg{display:flex;gap:10px;max-width:85%}
+    .msg.user{margin-left:auto;flex-direction:row-reverse}
+    .bubble{padding:13px 16px;border-radius:17px;line-height:1.55;white-space:pre-wrap}
+    .assistant .bubble{background:white;border:1px solid var(--line)}
+    .user .bubble{background:var(--ink);color:white}
+    .avatar{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;background:var(--sage);font-size:14px;flex:none}
+    .user .avatar{background:var(--blush)}
+    .composer-wrap{position:fixed;bottom:0;left:260px;right:0;padding:16px 22px 22px;background:linear-gradient(transparent,var(--cream) 30%)}
+    .composer{max-width:900px;margin:auto;display:flex;gap:8px;background:white;border:1px solid var(--line);border-radius:16px;padding:8px;box-shadow:0 8px 30px rgba(40,30,15,.08)}
+    .composer input{flex:1;border:0;outline:0;padding:10px 12px;background:transparent}
+    .send{border:0;background:var(--ink);color:#fff;border-radius:11px;padding:10px 17px;cursor:pointer}
+    .send:disabled{opacity:.5;cursor:not-allowed}
+    .typing{color:var(--muted);font-size:13px;margin:5px 42px}
+    .assistant .bubble{white-space:normal}
+    .bubble p{margin:0 0 .6em}.bubble p:last-child{margin-bottom:0}
+    .bubble ul,.bubble ol{margin:.2em 0 .6em;padding-left:1.3em}
+    .bubble li{margin:.2em 0}
+    .bubble code{background:#f1ece2;padding:1px 5px;border-radius:5px;font-size:.92em}
+    .cursor::after{content:"▍";animation:blink 1s steps(2) infinite;color:var(--muted)}
+    @keyframes blink{50%{opacity:0}}
+    .history button.active{background:#eae3d8;color:var(--ink)}
+    .history button{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .error{color:#a33}
+    .hidden{display:none!important}
+    @media(max-width:760px){
+      .sidebar{position:fixed;z-index:10;left:-280px;top:0;bottom:0;transition:.2s;box-shadow:8px 0 30px rgba(0,0,0,.1)}
+      .sidebar.open{left:0}
+      .menu{display:block}
+      .top{padding:0 16px}
+      .composer-wrap{left:0;padding:10px 12px 14px}
+      .chat{padding:30px 15px 105px}
+      .hero h1{font-size:38px}
+      .suggestions{grid-template-columns:1fr}
+      .msg{max-width:94%}
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">AasthaGPT</div>
+    <button class="new" onclick="newChat()">+ New chat</button>
+    <div class="history-title">Recent chats</div>
+    <div class="history" id="history"></div>
+  </aside>
+
+  <main class="main">
+    <header class="top">
+      <button class="menu" onclick="toggleMenu()">☰</button>
+      <div class="status" id="status">Ready</div>
+    </header>
+
+    <section class="chat">
+      <div class="hero" id="hero">
+        <h1>Ask Aastha anything.</h1>
+        <p>A simple AI assistant for exploring Aastha's resume.</p>
+      </div>
+
+      <div class="suggestions" id="suggestions">
+        <button class="suggestion" data-q="Tell me about Aastha."><b>About Aastha</b><span>Give me a quick introduction.</span></button>
+        <button class="suggestion" data-q="What are Aastha's strongest skills?"><b>Top skills</b><span>What does she do best?</span></button>
+        <button class="suggestion" data-q="Tell me about Aastha's experience."><b>Experience</b><span>Summarize her work experience.</span></button>
+        <button class="suggestion" data-q="Why should someone hire Aastha?"><b>Why hire her?</b><span>What makes her a strong candidate?</span></button>
+      </div>
+
+      <div class="messages" id="messages"></div>
+    </section>
+  </main>
+</div>
+
+<div class="composer-wrap">
+  <form class="composer" onsubmit="sendMessage(event)">
+    <input id="input" autocomplete="off" placeholder="Ask something about Aastha..." />
+    <button class="send" id="send">Send</button>
+  </form>
+</div>
+
+<script>
+  // Backend location.
+  // "/api" works locally and on Vercel (same domain).
+  // If you host the backend elsewhere, use its full URL, e.g. "https://my-api.onrender.com/api"
+  const API_URL = "/api";
+
+  const STORE_KEY = "aasthagpt_convos_v2";
+
+  const messagesEl = document.getElementById("messages");
+  const input = document.getElementById("input");
+  const send = document.getElementById("send");
+  const statusEl = document.getElementById("status");
+  const historyEl = document.getElementById("history");
+  const hero = document.getElementById("hero");
+  const suggestions = document.getElementById("suggestions");
+
+  let convos = [];
+  try { convos = JSON.parse(localStorage.getItem(STORE_KEY) || "[]"); } catch { convos = []; }
+  let current = null; // {id, title, turns:[{q,a}]}
+
+  function save(){
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(convos.slice(-30))); } catch {}
+  }
+
+  // ---------- tiny safe markdown renderer ----------
+  function inline(s){
+    return s.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+            .replace(/`([^`]+)`/g, "<code>$1</code>");
+  }
+  function renderMarkdown(text){
+    const esc = text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    let out = "", list = null;
+    const close = () => { if(list){ out += "</" + list + ">"; list = null; } };
+    for(const raw of esc.split("\n")){
+      const line = raw.trim();
+      let m;
+      if((m = line.match(/^[-*•]\s+(.*)/))){
+        if(list !== "ul"){ close(); out += "<ul>"; list = "ul"; }
+        out += "<li>" + inline(m[1]) + "</li>";
+      } else if((m = line.match(/^\d+[.)]\s+(.*)/))){
+        if(list !== "ol"){ close(); out += "<ol>"; list = "ol"; }
+        out += "<li>" + inline(m[1]) + "</li>";
+      } else if(!line){
+        close();
+      } else {
+        close();
+        const h = line.match(/^#{1,4}\s+(.*)/);
+        out += "<p>" + (h ? "<strong>" + inline(h[1]) + "</strong>" : inline(line)) + "</p>";
+      }
+    }
+    close();
+    return out;
+  }
+
+  // ---------- UI helpers ----------
+  function scrollDown(){ window.scrollTo({top: document.body.scrollHeight}); }
+
+  function addMessage(role, text){
+    const row = document.createElement("div");
+    row.className = "msg " + role;
+    const avatar = document.createElement("div");
+    avatar.className = "avatar";
+    avatar.textContent = role === "user" ? "You" : "A";
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    if(role === "user") bubble.textContent = text;
+    else bubble.innerHTML = renderMarkdown(text);
+    row.append(avatar, bubble);
+    messagesEl.appendChild(row);
+    scrollDown();
+    return bubble;
+  }
+
+  function showChat(){
+    hero.classList.add("hidden");
+    suggestions.classList.add("hidden");
+  }
+
+  function renderHistory(){
+    historyEl.innerHTML = "";
+    convos.slice().reverse().slice(0, 10).forEach(c => {
+      const b = document.createElement("button");
+      b.textContent = c.title;
+      b.title = c.title;
+      if(current && current.id === c.id) b.classList.add("active");
+      b.onclick = () => openConvo(c.id);
+      historyEl.appendChild(b);
+    });
+  }
+
+  function openConvo(id){
+    if(send.disabled) return;
+    const c = convos.find(x => x.id === id);
+    if(!c) return;
+    current = c;
+    messagesEl.innerHTML = "";
+    c.turns.forEach(t => { addMessage("user", t.q); addMessage("assistant", t.a); });
+    showChat();
+    renderHistory();
+    document.getElementById("sidebar").classList.remove("open");
+  }
+
+  function toggleMenu(){ document.getElementById("sidebar").classList.toggle("open"); }
+
+  function newChat(){
+    if(send.disabled) return;
+    current = null;
+    messagesEl.innerHTML = "";
+    hero.classList.remove("hidden");
+    suggestions.classList.remove("hidden");
+    renderHistory();
+    input.focus();
+    document.getElementById("sidebar").classList.remove("open");
+  }
+
+  // ---------- chat ----------
+  function ask(question){ return sendQuestion(question); }
+
+  function sendMessage(e){
+    e.preventDefault();
+    const q = input.value.trim();
+    if(q) sendQuestion(q);
+  }
+
+  async function sendQuestion(question){
+    if(send.disabled) return;
+
+    showChat();
+    addMessage("user", question);
+    input.value = "";
+    send.disabled = true;
+    statusEl.textContent = "Thinking...";
+
+    // previous turns of this conversation give the model context for follow-ups
+    const history = [];
+    if(current) current.turns.slice(-4).forEach(t => {
+      history.push({role: "user", content: t.q}, {role: "assistant", content: t.a});
+    });
+
+    const bubble = addMessage("assistant", "");
+    bubble.classList.add("cursor");
+    let answer = "";
+
+    try {
+      const response = await fetch(API_URL.replace(/\/$/, "") + "/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({question, history})
+      });
+
+      if(!response.ok){
+        let detail = "";
+        try { detail = (await response.json()).detail || ""; } catch {}
+        throw new Error("Backend returned " + response.status + (detail ? ": " + detail : ""));
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      while(true){
+        const {value, done} = await reader.read();
+        if(done) break;
+        answer += decoder.decode(value, {stream: true});
+        bubble.innerHTML = renderMarkdown(answer);
+        scrollDown();
+      }
+      answer += decoder.decode();
+      if(!answer.trim()) answer = "I couldn't generate an answer. Please try again.";
+      bubble.innerHTML = renderMarkdown(answer);
+
+      if(!current){
+        current = {id: Date.now(), title: question.slice(0, 60), turns: []};
+        convos.push(current);
+      }
+      current.turns.push({q: question, a: answer});
+      save();
+      renderHistory();
+      statusEl.textContent = "Ready";
+    } catch(err){
+      console.error(err);
+      bubble.classList.add("error");
+      bubble.textContent = "Couldn't reach the AasthaGPT backend (" + err.message + "). Please try again in a moment.";
+      statusEl.textContent = "Connection error";
+    } finally {
+      bubble.classList.remove("cursor");
+      send.disabled = false;
+      input.focus();
+    }
+  }
+
+  document.querySelectorAll(".suggestion").forEach(btn => {
+    btn.addEventListener("click", () => ask(btn.dataset.q));
+  });
+
+  renderHistory();
+</script>
+</body>
+</html>
