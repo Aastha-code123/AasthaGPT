@@ -21,7 +21,30 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 RESUME_PATH = BASE_DIR / "A_Resume.pdf"
 INDEX_HTML = BASE_DIR / "index.html"
 
-app = FastAPI(title="AasthaGPT", version="1.1.0")
+app = FastAPI(title="AasthaGPT", version="1.1.1")
+
+
+class StripApiPrefix:
+    """Vercel may pass /api/chat, /api/index/chat or /chat. Normalise all to /chat."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] in ("http", "websocket"):
+            path = scope.get("path", "")
+            for prefix in ("/api/index", "/api"):
+                if path == prefix or path.startswith(prefix + "/"):
+                    path = path[len(prefix):] or "/"
+                    break
+            scope = dict(scope)
+            scope["path"] = path
+            if "raw_path" in scope:
+                scope["raw_path"] = path.encode()
+        await self.app(scope, receive, send)
+
+
+app.add_middleware(StripApiPrefix)
 
 app.add_middleware(
     CORSMiddleware,
@@ -100,7 +123,7 @@ RULES:
 
 # ----------------------------- routes --------------------------------
 
-api = APIRouter(prefix="/api")
+api = APIRouter()
 
 
 @api.get("/health")
